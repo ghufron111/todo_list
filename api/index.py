@@ -1,43 +1,39 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-app = Flask(__name__)
+app = FastAPI()
 
 todos = []
 
-@app.route("/")
+class Todo(BaseModel):
+    title: str
+    done: bool = False
+
+@app.get("/")
 def home():
-    return jsonify({"message": "Welcome to Todo API on Vercel!"})
+    return {"message": "Welcome to Todo API on Vercel with FastAPI!"}
 
-@app.route("/todos", methods=["GET"])
+@app.get("/todos")
 def get_todos():
-    return jsonify(todos)
+    return todos
 
-@app.route("/todos", methods=["POST"])
-def add_todo():
-    data = request.json
-    todo = {
-        "id": len(todos) + 1,
-        "title": data.get("title"),
-        "done": False
-    }
-    todos.append(todo)
-    return jsonify({"message": "Todo added!", "todo": todo}), 201
+@app.post("/todos")
+def add_todo(todo: Todo):
+    new_todo = {"id": len(todos) + 1, "title": todo.title, "done": todo.done}
+    todos.append(new_todo)
+    return {"message": "Todo added!", "todo": new_todo}
 
-@app.route("/todos/<int:todo_id>", methods=["PUT"])
-def update_todo(todo_id):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            data = request.json
-            todo["title"] = data.get("title", todo["title"])
-            todo["done"] = data.get("done", todo["done"])
-            return jsonify({"message": "Todo updated!", "todo": todo})
-    return jsonify({"error": "Todo not found"}), 404
+@app.put("/todos/{todo_id}")
+def update_todo(todo_id: int, todo: Todo):
+    for t in todos:
+        if t["id"] == todo_id:
+            t["title"] = todo.title
+            t["done"] = todo.done
+            return {"message": "Todo updated!", "todo": t}
+    return {"error": "Todo not found"}
 
-@app.route("/todos/<int:todo_id>", methods=["DELETE"])
-def delete_todo(todo_id):
+@app.delete("/todos/{todo_id}")
+def delete_todo(todo_id: int):
     global todos
-    todos = [todo for todo in todos if todo["id"] != todo_id]
-    return jsonify({"message": "Todo deleted!"})
-
-# ⚠️ Penting: Vercel butuh variable `app`
-handler = app
+    todos = [t for t in todos if t["id"] != todo_id]
+    return {"message": "Todo deleted!"}
