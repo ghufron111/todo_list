@@ -1,45 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI()
-
-# CORS biar bisa diakses dari browser
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Simpan todo di memory
 todos = []
 
-@app.get("/")
+class Todo(BaseModel):
+    task: str
+
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return {"message": "Welcome to Todo API on Vercel with FastAPI!"}
-
-@app.get("/todos")
-async def get_todos():
-    return {"todos": todos}
-
-@app.post("/todos")
-async def add_todo(request: Request):
-    data = await request.json()
-    task = data.get("task")
-    if task:
-        todos.append({"task": task, "done": False})
-    return {"todos": todos}
-
-@app.post("/todos/{index}/toggle")
-async def toggle(index: int):
-    if 0 <= index < len(todos):
-        todos[index]["done"] = not todos[index]["done"]
-    return {"todos": todos}
-
-@app.get("/ui", response_class=HTMLResponse)
-async def ui():
+    # HTML Todo List sederhana
     return """
     <!DOCTYPE html>
     <html>
@@ -47,44 +20,70 @@ async def ui():
         <title>Todo List</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            li.done { text-decoration: line-through; color: gray; }
+            h1 { color: #333; }
+            ul { list-style-type: none; padding: 0; }
+            li { padding: 8px; margin: 5px 0; background: #f4f4f4; border-radius: 4px; }
+            button { margin-left: 10px; }
         </style>
     </head>
     <body>
-        <h1>Todo List</h1>
-        <input id="taskInput" type="text" placeholder="Enter a task" />
+        <h1>My Todo List</h1>
+        <input id="taskInput" type="text" placeholder="New task">
         <button onclick="addTodo()">Add</button>
         <ul id="todoList"></ul>
 
         <script>
-            async function loadTodos() {
+            async function fetchTodos() {
                 const res = await fetch('/api/todos');
                 const data = await res.json();
                 const list = document.getElementById('todoList');
                 list.innerHTML = '';
-                data.todos.forEach((todo, i) => {
+                data.forEach((todo, index) => {
                     const li = document.createElement('li');
                     li.textContent = todo.task;
-                    if (todo.done) li.classList.add('done');
-                    li.onclick = async () => {
-                        await fetch(`/api/todos/${i}/toggle`, { method: 'POST' });
-                        loadTodos();
-                    };
+                    const btn = document.createElement('button');
+                    btn.textContent = '❌';
+                    btn.onclick = () => deleteTodo(index);
+                    li.appendChild(btn);
                     list.appendChild(li);
                 });
             }
+
             async function addTodo() {
-                const task = document.getElementById('taskInput').value;
+                const taskInput = document.getElementById('taskInput');
+                if (!taskInput.value) return;
                 await fetch('/api/todos', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ task })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task: taskInput.value })
                 });
-                document.getElementById('taskInput').value = '';
-                loadTodos();
+                taskInput.value = '';
+                fetchTodos();
             }
-            loadTodos();
+
+            async function deleteTodo(index) {
+                await fetch('/api/todos/' + index, { method: 'DELETE' });
+                fetchTodos();
+            }
+
+            fetchTodos();
         </script>
     </body>
     </html>
     """
+
+@app.get("/api/todos")
+async def get_todos():
+    return todos
+
+@app.post("/api/todos")
+async def create_todo(todo: Todo):
+    todos.append(todo)
+    return {"message": "Todo added", "todo": todo}
+
+@app.delete("/api/todos/{todo_id}")
+async def delete_todo(todo_id: int):
+    if 0 <= todo_id < len(todos):
+        removed = todos.pop(todo_id)
+        return {"message": "Todo removed", "todo": removed}
+    return {"error": "Invalid ID"}
