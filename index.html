@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo List</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f4f4f9;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .todo-container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      background: #eee;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    button {
+      background: crimson;
+      color: white;
+      border: none;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: darkred;
+    }
+    input {
+      padding: 0.5rem;
+      width: 70%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .add-btn {
+      background: seagreen;
+      margin-left: 0.5rem;
+    }
+    .add-btn:hover {
+      background: darkgreen;
+    }
+  </style>
+</head>
+<body>
+  <h1>Todo List</h1>
+  <div class="todo-container">
+    <div>
+      <input type="text" id="newTodo" placeholder="Tambahkan todo baru..." />
+      <button class="add-btn" onclick="addTodo()">Tambah</button>
+    </div>
+    <ul id="todoList"></ul>
+  </div>
+
+  <script>
+    const API_URL = "/api/todos"; // karena FastAPI sudah deploy di Vercel `/api/...`
+
+    async function fetchTodos() {
+      const res = await fetch(API_URL);
+      const todos = await res.json();
+      const list = document.getElementById("todoList");
+      list.innerHTML = "";
+      todos.forEach((todo, index) => {
+        const li = document.createElement("li");
+        li.textContent = todo;
+        const btn = document.createElement("button");
+        btn.textContent = "Hapus";
+        btn.onclick = () => deleteTodo(index);
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    async function addTodo() {
+      const input = document.getElementById("newTodo");
+      const todo = input.value.trim();
+      if (!todo) return;
+      await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ todo }),
+      });
+      input.value = "";
+      fetchTodos();
+    }
+
+    async function deleteTodo(index) {
+      await fetch(`${API_URL}/${index}`, {
+        method: "DELETE",
+      });
+      fetchTodos();
+    }
+
+    fetchTodos();
+  </script>
+</body>
+</html>
