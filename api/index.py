@@ -1,6 +1,4 @@
 from flask import Flask, request, jsonify
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from werkzeug.serving import run_simple
 
 app = Flask(__name__)
 
@@ -41,9 +39,5 @@ def delete_todo(todo_id):
     todos = [todo for todo in todos if todo["id"] != todo_id]
     return jsonify({"message": "Todo deleted!"})
 
-
-# Vercel butuh variable `app` yang diexport
+# ⚠️ Penting: Vercel butuh variable `app`
 handler = app
-
-if __name__ == "__main__":
-    run_simple("0.0.0.0", 5000, app)
