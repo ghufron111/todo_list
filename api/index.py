@@ -4,167 +4,108 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-# Simpan todo di memory
 todos = []
 
 class Todo(BaseModel):
     task: str
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
+async def index():
     return """
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <title>My Tasks</title>
+        <title>Todo List</title>
         <style>
-            body {
-                margin: 0;
-                font-family: "Segoe UI", Arial, sans-serif;
-                display: flex;
-                height: 100vh;
-                background: #f8f9fa;
-            }
-            /* Sidebar */
-            .sidebar {
-                width: 250px;
-                background: #f0f0f0;
-                border-right: 1px solid #ddd;
-                padding: 20px;
-                display: flex;
-                flex-direction: column;
-            }
-            .sidebar h2 {
-                font-size: 20px;
-                margin-bottom: 20px;
-                color: #333;
-            }
-            .sidebar ul {
-                list-style: none;
-                padding: 0;
-            }
-            .sidebar li {
-                padding: 10px;
-                border-radius: 6px;
-                cursor: pointer;
-                margin-bottom: 5px;
-                transition: background 0.2s;
-            }
-            .sidebar li:hover {
-                background: #e1e1e1;
-            }
-            .sidebar .active {
-                background: #0078d7;
-                color: white;
-            }
-            /* Main content */
-            .main {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-            }
-            .header {
+            body { margin: 0; font-family: Arial, sans-serif; background: #f5f7fb; }
+            header {
                 background: linear-gradient(135deg, #0078d7, #005a9e);
                 color: white;
-                padding: 20px;
-                font-size: 22px;
+                padding: 15px 25px;
+                font-size: 20px;
                 font-weight: bold;
             }
-            .content {
-                padding: 20px;
-                flex: 1;
-                overflow-y: auto;
-            }
-            .task-input {
+            .container {
                 display: flex;
-                margin-bottom: 20px;
+                height: calc(100vh - 60px);
             }
-            .task-input input {
-                flex: 1;
+            aside {
+                width: 220px;
+                background: #f0f0f0;
+                padding: 15px;
+                border-right: 1px solid #ddd;
+            }
+            aside ul { list-style: none; padding: 0; }
+            aside li {
                 padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 4px 0 0 4px;
-                outline: none;
+                border-radius: 5px;
+                margin-bottom: 5px;
+                cursor: pointer;
             }
-            .task-input button {
-                padding: 10px 20px;
+            aside li.active { background: #0078d7; color: white; }
+            main {
+                flex: 1;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+            }
+            input {
+                padding: 10px;
+                width: 70%;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+            button {
+                padding: 10px 15px;
                 border: none;
                 background: #0078d7;
                 color: white;
-                border-radius: 0 4px 4px 0;
+                border-radius: 5px;
                 cursor: pointer;
+                margin-left: 5px;
             }
-            ul.tasks {
-                list-style: none;
-                padding: 0;
-                margin: 0;
-            }
-            ul.tasks li {
+            ul#todoList { list-style: none; padding: 0; margin-top: 20px; }
+            ul#todoList li {
                 background: white;
-                border: 1px solid #ddd;
                 padding: 10px;
                 margin-bottom: 10px;
                 border-radius: 6px;
+                border: 1px solid #ddd;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                transition: box-shadow 0.2s;
             }
-            ul.tasks li:hover {
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            }
-            ul.tasks button {
+            ul#todoList li:hover { background: #f8f8f8; }
+            .delete-btn {
+                background: none;
                 border: none;
-                background: transparent;
-                cursor: pointer;
                 color: #ff4d4d;
                 font-size: 18px;
-            }
-            /* Detail panel (kanan) */
-            .detail {
-                width: 300px;
-                border-left: 1px solid #ddd;
-                background: #fff;
-                padding: 20px;
-            }
-            .detail h3 {
-                margin-top: 0;
-            }
-            .empty-detail {
-                color: #888;
-                text-align: center;
-                margin-top: 40px;
+                cursor: pointer;
             }
         </style>
     </head>
     <body>
-        <div class="sidebar">
-            <h2>Lists</h2>
-            <ul>
-                <li>My Day</li>
-                <li>Important</li>
-                <li>Planned</li>
-                <li class="active">Tasks</li>
-            </ul>
-        </div>
-        <div class="main">
-            <div class="header">Tasks</div>
-            <div class="content">
-                <div class="task-input">
-                    <input id="taskInput" type="text" placeholder="Add a new task...">
+        <header>Tasks</header>
+        <div class="container">
+            <aside>
+                <ul>
+                    <li>My Day</li>
+                    <li>Important</li>
+                    <li>Planned</li>
+                    <li class="active">Tasks</li>
+                </ul>
+            </aside>
+            <main>
+                <div>
+                    <input id="taskInput" type="text" placeholder="Add a task...">
                     <button onclick="addTodo()">Add</button>
                 </div>
-                <ul id="todoList" class="tasks"></ul>
-            </div>
-        </div>
-        <div class="detail" id="detailPanel">
-            <div class="empty-detail">Select a task to view details</div>
+                <ul id="todoList"></ul>
+            </main>
         </div>
 
         <script>
-            let selectedTaskIndex = null;
-
             async function fetchTodos() {
                 const res = await fetch('/api/todos');
                 const data = await res.json();
@@ -174,9 +115,8 @@ async def root():
                     const li = document.createElement('li');
                     li.innerHTML = `
                         <span>${todo.task}</span>
-                        <button onclick="deleteTodo(${index})">❌</button>
+                        <button class="delete-btn" onclick="deleteTodo(${index})">×</button>
                     `;
-                    li.onclick = () => showDetail(todo, index);
                     list.appendChild(li);
                 });
             }
@@ -195,18 +135,7 @@ async def root():
 
             async function deleteTodo(index) {
                 await fetch('/api/todos/' + index, { method: 'DELETE' });
-                document.getElementById('detailPanel').innerHTML = '<div class="empty-detail">Select a task to view details</div>';
                 fetchTodos();
-            }
-
-            function showDetail(todo, index) {
-                selectedTaskIndex = index;
-                document.getElementById('detailPanel').innerHTML = `
-                    <h3>${todo.task}</h3>
-                    <p><b>Status:</b> Incomplete</p>
-                    <p><b>Created:</b> Just now</p>
-                    <button onclick="deleteTodo(${index})" style="background:#ff4d4d;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;">Delete Task</button>
-                `;
             }
 
             fetchTodos();
